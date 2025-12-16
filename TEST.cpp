@@ -173,9 +173,9 @@ void DirCmd (vector<string> &args) {
             int Attribute = fd.dwFileAttributes;
             if (Attribute & FILE_ATTRIBUTE_DIRECTORY) mode[0] = 'd';
             if (Attribute & FILE_ATTRIBUTE_ARCHIVE) mode[1] = 'a';
-            if (Attribute & FILE_ATTRIBUTE_READONLY) mode[0] = 'r';
-            if (Attribute & FILE_ATTRIBUTE_HIDDEN) mode[0] = 'h';
-            if (Attribute & FILE_ATTRIBUTE_SYSTEM) mode[0] = 's';
+            if (Attribute & FILE_ATTRIBUTE_READONLY) mode[2] = 'r';
+            if (Attribute & FILE_ATTRIBUTE_HIDDEN) mode[3] = 'h';
+            if (Attribute & FILE_ATTRIBUTE_SYSTEM) mode[4] = 's';
             //lastwritetime
             FILETIME ft = fd.ftLastWriteTime;
             SYSTEMTIME st;
