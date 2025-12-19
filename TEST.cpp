@@ -28,11 +28,11 @@ void (*ptr[])(vector<string> &) = {
     DateCmd,
     TimeCmd,
     DirCmd,
-    // StartCmd,
-    // StopCmd,
-    // ResumeCmd,
-    // KillCmd,
-    // ListCmd,
+    StartCmd,
+    StopCmd,
+    ResumeCmd,
+    KillCmd,
+    ListCmd,
     ClearCmd,
 };
 // Command List
@@ -194,19 +194,28 @@ void DirCmd (vector<string> &args) {
 
         }
         while (FindNextFileA(h, &fd) != 0);
+        CloseHandle(h);
         return;
     }
 }
 void ExitCmd (vector<string> &args) {
     exit(0);
 }
-void ClearCmd (vector<string>&args) {
+void ClearCmd (vector<string> &args) {
     system("cls");
     return;
 }
-void StartCmd (vector<string>&args) {
-    
+void StartCmd (vector<string> &args) {
 }
+void StopCmd (vector<string> &args) {
+}
+void ResumeCmd (vector<string> &args) {
+}
+void KillCmd (vector<string> &args) {
+}
+void ListCmd (vector<string> &args) {
+}
+
 int main() {
     SetConsoleTitle("TinyShell");
     init();
