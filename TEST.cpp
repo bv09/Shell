@@ -302,7 +302,7 @@ void ListCmd (vector<string> &args) {
 }
 
 int main() {
-    SetConsoleTitle(L"TinyShell");
+    SetConsoleTitle("TinyShell");
     init();
     while (1) {
         string input;
