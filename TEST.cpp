@@ -79,6 +79,13 @@ void init () {
         idx++;
     }
 }
+// Check valid number
+bool Check_valid (string s) {
+    for (int i = 0; i < s.length(); i++) {
+        if (s[i] < '0' || s[i] > '9') return 0;
+    }
+    return 1;
+}
 // Get MainName Process
 string Get_Name_Process (string Name) {
     string MainName = "";
@@ -270,10 +277,84 @@ void StartCmd (vector<string> &args) {
     }
 }
 void StopCmd (vector<string> &args) {
+    if (args.size() == 1) {
+        cout << "Please provide process ID to stop\n";
+        return;
+    }
+    if (!Check_valid(args[1])) {
+        cout << "Process ID must be a number\n";
+        return;
+    }   
+    int pid = stoi(args[1]);
+    if (!Process_List.count(pid)) {
+        cout << "No process with this ID, please use 'list' for information\n";
+        return;
+    }
+    if (Process_List[pid].state == 1) {
+        cout << "Process is already stopped\n";
+        return;
+    }
+    if (Process_List[pid].state == 0) {
+        PROCESS_INFORMATION pi = Process_List[pid].pi;
+        SuspendThread(pi.hThread);
+        Process_List[pid].state = 1;
+    }
 }
 void ResumeCmd (vector<string> &args) {
+    if (args.size() == 1) {
+        cout << "Please provide process ID to resume\n";
+        return;
+    }
+    if (!Check_valid(args[1])) {
+        cout << "Process ID must be a number\n";
+        return;
+    }
+    int pid = stoi(args[1]);
+    if (!Process_List.count(pid)) {
+        cout << "No process with this ID, please use 'list' for information\n";
+        return;
+    }
+    if (Process_List[pid].state == 0) {
+        cout << "Process is already running\n";
+        return;
+    }
+    if (Process_List[pid].state == 1) {
+        PROCESS_INFORMATION pi = Process_List[pid].pi;
+        ResumeThread(pi.hThread);
+        Process_List[pid].state = 0;
+    }
 }
 void KillCmd (vector<string> &args) {
+    if (args.size() == 1) {
+        cout << "Please provide process ID or -1 to kill all processes\n";
+        return;
+    }
+    if (args[1] == "-1") {
+        for (auto &it : Process_List) {
+            PROCESS_INFORMATION pi = it.second.pi;
+            TerminateProcess(pi.hProcess, 0);
+            CloseHandle(pi.hProcess);
+            CloseHandle(pi.hThread);
+            ID--;
+        }
+        Process_List.clear();
+        return;
+    }
+    if (!Check_valid(args[1])) {
+        cout << "Process ID must be a number\n";
+        return;
+    }
+    int pid = stoi(args[1]);
+    if (!Process_List.count(pid)) {
+        cout << "No process with this ID, please use 'list' for information\n";
+        return;
+    }
+    PROCESS_INFORMATION pi = Process_List[pid].pi;
+    TerminateProcess(pi.hProcess, 0);
+    CloseHandle(pi.hProcess);
+    CloseHandle(pi.hThread);
+    Process_List.erase(pid);
+    ID--;
 }
 void ListCmd (vector<string> &args) {
     cout << ID << "\n";
@@ -291,14 +372,14 @@ void ListCmd (vector<string> &args) {
             CloseHandle(pi.hProcess);
             CloseHandle(pi.hThread);
             it = Process_List.erase(it);
+            ID--;
         }
         else {
             cout << left << setw(9) << id << left << setw(10) << pi.dwProcessId 
             << left << setw(9) << STATE << left << setw(9) << name << '\n';  
             ++it;
         }
-    }
-        
+    }   
 }
 
 int main() {
