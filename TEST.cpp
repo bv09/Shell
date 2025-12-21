@@ -8,6 +8,15 @@ using namespace std;
 #define CmdPt(name) void name (vector<string> &args);
 const int Shell_Line_Len = 1024;
 map <string, int> Cmd_map;
+int ID = 0;
+struct Process_Struct {
+    // data
+    int id;
+    string name;
+    int state;
+    PROCESS_INFORMATION pi;
+};
+map<int, Process_Struct> Process_List;
 // prototype Cmd
 CmdPt(HelpCmd)
 CmdPt(ExitCmd)
@@ -69,6 +78,19 @@ void init () {
         Cmd_map.insert({v, idx});
         idx++;
     }
+}
+// Get MainName Process
+string Get_Name_Process (string Name) {
+    string MainName = "";
+    for (int i = Name.length() - 1; i >= 0; i--) {
+        if (Name[i] == '\\') {
+            reverse(MainName.begin(), MainName.end());
+            return MainName;
+        }
+        MainName += Name[i];
+    }
+    reverse(MainName.begin(), MainName.end());
+    return MainName;
 }
 // đọc input
 string read_line() {
@@ -199,6 +221,13 @@ void DirCmd (vector<string> &args) {
     }
 }
 void ExitCmd (vector<string> &args) {
+    for (auto &it : Process_List) {
+        PROCESS_INFORMATION pi = it.second.pi;
+        TerminateProcess(pi.hProcess, 0);
+        CloseHandle(pi.hProcess);
+        CloseHandle(pi.hThread);
+    }
+    Process_List.clear();
     exit(0);
 }
 void ClearCmd (vector<string> &args) {
@@ -206,6 +235,39 @@ void ClearCmd (vector<string> &args) {
     return;
 }
 void StartCmd (vector<string> &args) {
+    if (args.size() == 1) {
+        cout << "This shell support .exe and .bat\n";
+        return;
+    }
+    int Mode = 0;
+    if (args.size() == 3) {
+        if (args[2] == "foreground") Mode = 1;
+        else if (args[2] != "background") Mode = -1;
+    } 
+    
+    if (args[1].find(".") == -1) {
+        args[1] += ".exe";
+    } 
+    int len = args[1].size();
+    cout << args[1] << "\n";
+    if (len >= 4 && args[1].substr(len - 4) == ".exe") {
+        if (Mode == -1) {
+            cout << "Third argument should be 'background' or 'foreground' or empty(background) \n";
+            return;
+        }
+        PROCESS_INFORMATION pi;
+        STARTUPINFOA si;
+        ZeroMemory(&si, sizeof(si));
+        si.cb = sizeof(si);
+        LPCSTR _ProcessName = args[1].c_str();
+        bool Error_Check = CreateProcessA(_ProcessName, NULL, NULL, NULL, false,
+            CREATE_NEW_CONSOLE, NULL, NULL, &si, &pi);
+        if (!Error_Check) {
+            cout << "Cannot find the file specified\n";
+            return;
+        }
+        Process_List.insert({++ID, Process_Struct{ID, Get_Name_Process(_ProcessName), 0, pi}});
+    }
 }
 void StopCmd (vector<string> &args) {
 }
@@ -214,10 +276,33 @@ void ResumeCmd (vector<string> &args) {
 void KillCmd (vector<string> &args) {
 }
 void ListCmd (vector<string> &args) {
+    cout << ID << "\n";
+    cout << left << setw(9) << "ID" << left << setw(10) << "PID" 
+    << left << setw(9) << "STATE" << left << setw(9) << "NAME" << '\n'; 
+    string PROCESS_STATE[2] = {"RUNNING", "STOPPED"};
+    for (auto it = Process_List.begin(); it != Process_List.end(); ) {
+        PROCESS_INFORMATION pi = it->second.pi;
+        int id = it->first;
+        string name = it->second.name;
+        string STATE = PROCESS_STATE[it->second.state];
+        DWORD Exit_Code;
+        GetExitCodeProcess(pi.hProcess, &Exit_Code);
+        if (Exit_Code != 259) {
+            CloseHandle(pi.hProcess);
+            CloseHandle(pi.hThread);
+            it = Process_List.erase(it);
+        }
+        else {
+            cout << left << setw(9) << id << left << setw(10) << pi.dwProcessId 
+            << left << setw(9) << STATE << left << setw(9) << name << '\n';  
+            ++it;
+        }
+    }
+        
 }
 
 int main() {
-    SetConsoleTitle("TinyShell");
+    SetConsoleTitle(L"TinyShell");
     init();
     while (1) {
         string input;
