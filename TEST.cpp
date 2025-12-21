@@ -287,17 +287,19 @@ void StopCmd (vector<string> &args) {
     }   
     int pid = stoi(args[1]);
     if (!Process_List.count(pid)) {
-        cout << "No process with this ID, please use 'list' for information\n";
+        cout << "Process with this ID is not exist, please use 'list' for more information\n";
         return;
     }
     if (Process_List[pid].state == 1) {
-        cout << "Process is already stopped\n";
+        cout << "This Process is already stopped\n";
         return;
     }
     if (Process_List[pid].state == 0) {
+        string Name = Process_List[pid].name;
         PROCESS_INFORMATION pi = Process_List[pid].pi;
         SuspendThread(pi.hThread);
         Process_List[pid].state = 1;
+        cout << "Stop '" << Name << "' success\n";
     }
 }
 void ResumeCmd (vector<string> &args) {
@@ -311,17 +313,19 @@ void ResumeCmd (vector<string> &args) {
     }
     int pid = stoi(args[1]);
     if (!Process_List.count(pid)) {
-        cout << "No process with this ID, please use 'list' for information\n";
+        cout << "Process with this ID is not exist, please use 'list' for more information\n";
         return;
     }
     if (Process_List[pid].state == 0) {
-        cout << "Process is already running\n";
+        cout << "This Process is already running\n";
         return;
-    }
+    } 
     if (Process_List[pid].state == 1) {
+        string Name = Process_List[pid].name;
         PROCESS_INFORMATION pi = Process_List[pid].pi;
         ResumeThread(pi.hThread);
         Process_List[pid].state = 0;
+        cout << "Resume '" << Name << "' success\n";
     }
 }
 void KillCmd (vector<string> &args) {
@@ -338,6 +342,7 @@ void KillCmd (vector<string> &args) {
             ID--;
         }
         Process_List.clear();
+        cout << "Kill all processes success\n";
         return;
     }
     if (!Check_valid(args[1])) {
@@ -346,15 +351,17 @@ void KillCmd (vector<string> &args) {
     }
     int pid = stoi(args[1]);
     if (!Process_List.count(pid)) {
-        cout << "No process with this ID, please use 'list' for information\n";
+        cout << "Process with this ID is not exist, please use 'list' for moreinformation\n";
         return;
     }
+    string Name = Process_List[pid].name;   
     PROCESS_INFORMATION pi = Process_List[pid].pi;
     TerminateProcess(pi.hProcess, 0);
     CloseHandle(pi.hProcess);
     CloseHandle(pi.hThread);
     Process_List.erase(pid);
     ID--;
+    cout << "Kill '" << Name << "' success\n";
 }
 void ListCmd (vector<string> &args) {
     cout << ID << "\n";
