@@ -29,6 +29,8 @@ CmdPt(ResumeCmd)
 CmdPt(KillCmd)
 CmdPt(ListCmd)
 CmdPt(ClearCmd)
+CmdPt(PathCmd)
+CmdPt(AddPathCmd)
 // pointer chi đến các hàm trên
 // note: không cần & trước function vì C++ tự decay tên hàm thành địa chỉ
 void (*ptr[])(vector<string> &) = {
@@ -43,6 +45,8 @@ void (*ptr[])(vector<string> &) = {
     KillCmd,
     ListCmd,
     ClearCmd,
+    PathCmd,
+    AddPathCmd
 };
 // Command List
 const vector<string> Cmd = {
@@ -57,6 +61,8 @@ const vector<string> Cmd = {
     "kill",
     "list",
     "clear"
+    "path",
+    "addpath"
 };
 const vector<string> Cmd_Instruction = {
     "Provide command information for TinyShell.",
@@ -69,7 +75,9 @@ const vector<string> Cmd_Instruction = {
     "Resume a suspended process by its ID (Know its ID by 'list' command).",
     "Kill a process by its ID or all by '-1' (Know its ID by 'list' command).",
     "List all background processes.",
-    "clear the TinyShell screen."
+    "clear the TinyShell screen.",
+    "Display all directories in the Path environment variable.",
+    "Add a new directory to the User Path."
 };
 // init : insert Cmd to Cmd_map with Key = name and Value = idx of Cmd in ptr[] 
 void init () {
@@ -388,6 +396,62 @@ void ListCmd (vector<string> &args) {
         }
     }   
 }
+void PathCmd(vector<string> &args) {
+    LPTCH pathEvn = GetEnvironmentStrings(); 
+    LPSTR pathP = (LPSTR)pathEvn;
+    while (*pathP != '\0') {
+        if(_strnicmp(pathP, "Path=", 5)==0) {
+            pathP += 5; 
+            while (*pathP != '\0') {
+                if (*pathP == ';'){
+                    cout << "\n";
+                }else{
+                    cout << *pathP;
+                }
+                pathP++;
+            }
+            cout << "\n";
+            FreeEnvironmentStrings(pathEvn);
+            return ; 
+        }else{
+            pathP += strlen(pathP) + 1;
+        }
+    }
+    cout << "Path variable not found.\n";
+    FreeEnvironmentStrings(pathEvn);
+    return ;
+}
+void AddPathCmd(vector<string> &args){
+    HKEY hkey;
+    LPCSTR keyName="Environment";
+    LPCSTR varName="Path";
+    if(RegOpenKeyExA(HKEY_CURRENT_USER,keyName,0,KEY_ALL_ACCESS,&hkey)!=ERROR_SUCCESS){
+        cout<< "Could not access Registry.\n";
+        return;
+    }
+    DWORD bufferSize=0;
+    DWORD varType=0;
+    RegQueryValueExA(hkey,varName,NULL,&varType,NULL,&bufferSize);
+    string currentPath="";
+    if(bufferSize>0){
+        currentPath.resize(bufferSize);
+        RegQueryValueExA(hkey,varName,NULL,&varType,(LPBYTE)&currentPath[0],&bufferSize);
+        currentPath.pop_back();
+    }
+    string newPath=args[1];
+    if(!currentPath.empty()&& currentPath.back()!=';'){
+        currentPath+=";";
+    }
+    currentPath+=newPath;
+    long result=RegSetValueExA(hkey,varName,0,REG_EXPAND_SZ,(const BYTE*)&currentPath[0],currentPath.length()+1);
+    if(result==ERROR_SUCCESS){
+        cout<< "Successfully added to Path\n";
+        SendMessageTimeoutA(HWND_BROADCAST,WM_SETTINGCHANGE,0,(LPARAM)keyName,SMTO_ABORTIFHUNG,500,NULL);
+    }else{
+        cout<< "Error writing to Registry. Error code: " << result << "\n";
+    }
+    RegCloseKey(hkey);
+}
 
 int main() {
     SetConsoleTitle("TinyShell");
@@ -402,4 +466,5 @@ int main() {
         excute_line(args);
     }
     
+
 }
