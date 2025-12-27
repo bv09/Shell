@@ -60,7 +60,7 @@ const vector<string> Cmd = {
     "resume",
     "kill",
     "list",
-    "clear"
+    "clear",
     "path",
     "addpath"
 };
@@ -468,3 +468,4 @@ int main() {
     
 
 }
+
