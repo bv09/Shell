@@ -447,6 +447,14 @@ void AddPathCmd(vector<string> &args){
     if(result==ERROR_SUCCESS){
         cout<< "Successfully added to Path\n";
         SendMessageTimeoutA(HWND_BROADCAST,WM_SETTINGCHANGE,0,(LPARAM)keyName,SMTO_ABORTIFHUNG,500,NULL);
+        char currentPathBuffer[32767];
+        GetEnvironmentVariableA(varName, currentPathBuffer, 32767);
+        string newPathBuffer=(string)currentPathBuffer;
+        if(!newPathBuffer.empty() && newPathBuffer.back()!=';'){
+            newPathBuffer += ";";
+        }
+        newPathBuffer +=newPath;
+        SetEnvironmentVariableA(varName,&newPathBuffer[0]);
     }else{
         cout<< "Error writing to Registry. Error code: " << result << "\n";
     }
@@ -468,4 +476,5 @@ int main() {
     
 
 }
+
 
