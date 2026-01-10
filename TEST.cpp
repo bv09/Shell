@@ -7,6 +7,8 @@
 using namespace std;
 #define CmdPt(name) void name (vector<string> &args);
 const int Shell_Line_Len = 1024;
+set <int> Remain_ID;
+volatile sig_atomic_t Stop = 0;
 map <string, int> Cmd_map;
 int ID = 0;
 struct Process_Struct {
@@ -50,7 +52,7 @@ void (*ptr[])(vector<string> &) = {
 };
 // Command List
 const vector<string> Cmd = {
-    "help",
+        "help",
     "exit",
     "date",
     "time",
@@ -107,6 +109,10 @@ string Get_Name_Process (string Name) {
     reverse(MainName.begin(), MainName.end());
     return MainName;
 }
+// thực hiên hủy foreground nếu Ctrl + C
+void OnCtrlC (int s) {
+    Stop = 1;
+}
 // đọc input
 string read_line() {
     string input;
@@ -153,6 +159,7 @@ void HelpCmd (vector<string> &args) {
         cout << Cmd[i] << "\t\t" << Cmd_Instruction[i] << '\n';         
     }
 }
+// hiện thị ngày tháng năm
 void DateCmd (vector<string> &args) {
     vector<string> Months = {
     "January", "February", "March", "April",
@@ -163,6 +170,7 @@ void DateCmd (vector<string> &args) {
     tm *t = localtime(&now);
     cout << Wdays[t->tm_wday] <<", "<< Months[t->tm_mon] <<" "<< t->tm_mday << "," << 1900 + t->tm_year << "\n";
 }
+// hiển thị thời gian thực
 void TimeCmd (vector<string> &args) {
     time_t now = time(&now);
     tm *t = localtime(&now);
@@ -170,6 +178,7 @@ void TimeCmd (vector<string> &args) {
     int hour = (t->tm_hour > 12) ? t->tm_hour - 12 : t->tm_hour;
     cout << hour << ":" << t->tm_min << ":" << t->tm_sec << rear << '\n';
 }
+// liệt kê file trong danh mục
 void DirCmd (vector<string> &args) {
     WIN32_FIND_DATAA fd;
     string name = "";
@@ -235,6 +244,7 @@ void DirCmd (vector<string> &args) {
         return;
     }
 }
+// Exit khỏi shell
 void ExitCmd (vector<string> &args) {
     for (auto &it : Process_List) {
         PROCESS_INFORMATION pi = it.second.pi;
@@ -245,15 +255,20 @@ void ExitCmd (vector<string> &args) {
     Process_List.clear();
     exit(0);
 }
+// clear màn hình shell
 void ClearCmd (vector<string> &args) {
     system("cls");
     return;
 }
+//chạy 1 file .exe hoặc .bat
 void StartCmd (vector<string> &args) {
     if (args.size() == 1) {
         cout << "This shell support .exe and .bat\n";
         return;
     }
+    // Mode = 0 : background
+    // Mode = 1 : foreground
+    // Mode = -1 : error
     int Mode = 0;
     if (args.size() == 3) {
         if (args[2] == "foreground") Mode = 1;
@@ -264,8 +279,52 @@ void StartCmd (vector<string> &args) {
         args[1] += ".exe";
     } 
     int len = args[1].size();
-    cout << args[1] << "\n";
-    if (len >= 4 && args[1].substr(len - 4) == ".exe") {
+    if (len >= 4 && args[1].substr(len - 4) == ".bat") {
+        if (Mode == -1) {
+            cout << "Third argument should be 'background' or 'foreground' or empty(background) \n";
+            return;
+        }
+        string str = "cmd /c " + args[1];
+        vector <char> char_vec (str.begin(), str.end());
+        char_vec.push_back('\0');
+        LPSTR CmdLine = char_vec.data();
+        STARTUPINFOA si;
+        PROCESS_INFORMATION pi;
+        ZeroMemory(&si, sizeof(si));
+        si.cb = sizeof(si);
+        // file .bat chay interpreter qua cmd.exe
+        bool Error_Check = CreateProcessA(NULL, CmdLine, NULL, NULL, false,
+                    CREATE_NEW_CONSOLE, NULL, NULL, &si, &pi);
+        if (!Error_Check) { 
+            cout << "Cannot find the file specified or this file is not executable\n";
+            return;
+        }         
+        if (Mode == 0) {
+            if (!Remain_ID.empty()) {
+                int curr_ID = *Remain_ID.begin();
+                Remain_ID.erase(Remain_ID.begin());
+                Process_List.insert({curr_ID, Process_Struct{curr_ID, Get_Name_Process(args[1]), 0, pi}});
+            }
+            else Process_List.insert({++ID, Process_Struct{ID, Get_Name_Process(args[1]), 0, pi}});
+        }
+        else {
+            PROCESS_INFORMATION foreground_Process = pi;
+            signal(SIGINT, OnCtrlC);
+            cout << "Running foreground... Press Ctrl+C to exit\n";
+            while (1) {
+                DWORD r = WaitForSingleObject(pi.hProcess, 33);
+                if (r == WAIT_OBJECT_0) break;
+                if (Stop) {
+                    cout << ".......\n";
+                    break;
+                }
+            }
+            TerminateProcess(pi.hProcess, 0);
+            CloseHandle(pi.hProcess);
+            CloseHandle(pi.hThread);
+        }
+    } 
+    else {
         if (Mode == -1) {
             cout << "Third argument should be 'background' or 'foreground' or empty(background) \n";
             return;
@@ -278,10 +337,33 @@ void StartCmd (vector<string> &args) {
         bool Error_Check = CreateProcessA(_ProcessName, NULL, NULL, NULL, false,
             CREATE_NEW_CONSOLE, NULL, NULL, &si, &pi);
         if (!Error_Check) {
-            cout << "Cannot find the file specified\n";
+            cout << "Cannot find the file specified or this file is not executable\n";
             return;
         }
-        Process_List.insert({++ID, Process_Struct{ID, Get_Name_Process(_ProcessName), 0, pi}});
+        if (Mode == 0) {
+            if (!Remain_ID.empty()) {
+                int curr_ID = *Remain_ID.begin();
+                Remain_ID.erase(Remain_ID.begin());
+                Process_List.insert({curr_ID, Process_Struct{curr_ID, Get_Name_Process(_ProcessName), 0, pi}});
+            }
+            else Process_List.insert({++ID, Process_Struct{ID, Get_Name_Process(_ProcessName), 0, pi}});
+        }
+        else {
+            PROCESS_INFORMATION foreground_Process = pi;
+            signal(SIGINT, OnCtrlC);
+            cout << "Running foreground... Press Ctrl+C to exit\n";
+            while (1) {
+                DWORD r = WaitForSingleObject(pi.hProcess, 33);
+                if (r == WAIT_OBJECT_0) break;
+                if (Stop) {
+                    cout << ".......\n";
+                    break;
+                }
+            }
+            TerminateProcess(pi.hProcess, 0);
+            CloseHandle(pi.hProcess);
+            CloseHandle(pi.hThread);
+        }
     }
 }
 void StopCmd (vector<string> &args) {
@@ -347,8 +429,9 @@ void KillCmd (vector<string> &args) {
             TerminateProcess(pi.hProcess, 0);
             CloseHandle(pi.hProcess);
             CloseHandle(pi.hThread);
-            ID--;
         }
+        ID = 0;
+        Remain_ID.clear();
         Process_List.clear();
         cout << "Kill all processes success\n";
         return;
@@ -368,14 +451,16 @@ void KillCmd (vector<string> &args) {
     CloseHandle(pi.hProcess);
     CloseHandle(pi.hThread);
     Process_List.erase(pid);
-    ID--;
+    Remain_ID.insert(pid);
     cout << "Kill '" << Name << "' success\n";
 }
+// list process đang chạy 
 void ListCmd (vector<string> &args) {
-    cout << ID << "\n";
     cout << left << setw(9) << "ID" << left << setw(10) << "PID" 
     << left << setw(9) << "STATE" << left << setw(9) << "NAME" << '\n'; 
     string PROCESS_STATE[2] = {"RUNNING", "STOPPED"};
+
+    // xóa process đã kết thúc khỏi Process_List và in ra list
     for (auto it = Process_List.begin(); it != Process_List.end(); ) {
         PROCESS_INFORMATION pi = it->second.pi;
         int id = it->first;
@@ -384,10 +469,11 @@ void ListCmd (vector<string> &args) {
         DWORD Exit_Code;
         GetExitCodeProcess(pi.hProcess, &Exit_Code);
         if (Exit_Code != 259) {
+            // nếu process kết thúc xóa khỏi list và thì ID vào Remain_ID
             CloseHandle(pi.hProcess);
             CloseHandle(pi.hThread);
             it = Process_List.erase(it);
-            ID--;
+            Remain_ID.insert(id);
         }
         else {
             cout << left << setw(9) << id << left << setw(10) << pi.dwProcessId 
@@ -460,7 +546,6 @@ void AddPathCmd(vector<string> &args){
     }
     RegCloseKey(hkey);
 }
-
 int main() {
     SetConsoleTitle("TinyShell");
     init();
@@ -474,7 +559,4 @@ int main() {
         excute_line(args);
     }
     
-
 }
-
-
