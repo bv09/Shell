@@ -524,6 +524,10 @@ void AddPathCmd(vector<string> &args){
         RegQueryValueExA(hkey,varName,NULL,&varType,(LPBYTE)&currentPath[0],&bufferSize);
         currentPath.pop_back();
     }
+    if(args.size()==1){
+        cout<< "Please input a path.\n";
+        return;
+    }
     string newPath=args[1];
     if(!currentPath.empty()&& currentPath.back()!=';'){
         currentPath+=";";
@@ -559,4 +563,5 @@ int main() {
         excute_line(args);
     }
     
+
 }
