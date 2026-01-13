@@ -512,6 +512,12 @@ void AddPathCmd(vector<string> &args){
         cout<< "Please input a path.\n";
         return;
     }
+    string newPath=args[1];
+    if(GetFileAttributesA(newPath.c_str())==INVALID_FILE_ATTRIBUTES){
+        cout<< "Please input a valid path.\n";
+        return;
+        
+    }
     HKEY hkey;
     LPCSTR keyName="Environment";
     LPCSTR varName="Path";
@@ -528,7 +534,6 @@ void AddPathCmd(vector<string> &args){
         RegQueryValueExA(hkey,varName,NULL,&varType,(LPBYTE)&currentPath[0],&bufferSize);
         currentPath.pop_back();
     }
-    string newPath=args[1];
     if(!currentPath.empty()&& currentPath.back()!=';'){
         currentPath+=";";
     }
@@ -565,4 +570,5 @@ int main() {
     
 
 }
+
 
