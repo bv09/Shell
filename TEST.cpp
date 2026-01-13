@@ -508,6 +508,10 @@ void PathCmd(vector<string> &args) {
     return ;
 }
 void AddPathCmd(vector<string> &args){
+    if(args.size()==1){
+        cout<< "Please input a path.\n";
+        return;
+    }
     HKEY hkey;
     LPCSTR keyName="Environment";
     LPCSTR varName="Path";
@@ -523,10 +527,6 @@ void AddPathCmd(vector<string> &args){
         currentPath.resize(bufferSize);
         RegQueryValueExA(hkey,varName,NULL,&varType,(LPBYTE)&currentPath[0],&bufferSize);
         currentPath.pop_back();
-    }
-    if(args.size()==1){
-        cout<< "Please input a path.\n";
-        return;
     }
     string newPath=args[1];
     if(!currentPath.empty()&& currentPath.back()!=';'){
@@ -565,3 +565,4 @@ int main() {
     
 
 }
+
