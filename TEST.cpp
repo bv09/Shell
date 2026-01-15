@@ -280,48 +280,21 @@ void StartCmd (vector<string> &args) {
     } 
     int len = args[1].size();
     if (len >= 4 && args[1].substr(len - 4) == ".bat") {
-        if (Mode == -1) {
-            cout << "Third argument should be 'background' or 'foreground' or empty(background) \n";
+        ifstream file_str (args[1]);
+        if (!file_str.is_open()) {
+            file_str.close();
+            cout << "Cannot find \"" << args[1] << "\" in this directory\n";
             return;
-        }
-        string str = "cmd /c " + args[1];
-        vector <char> char_vec (str.begin(), str.end());
-        char_vec.push_back('\0');
-        LPSTR CmdLine = char_vec.data();
-        STARTUPINFOA si;
-        PROCESS_INFORMATION pi;
-        ZeroMemory(&si, sizeof(si));
-        si.cb = sizeof(si);
-        // file .bat chay interpreter qua cmd.exe
-        bool Error_Check = CreateProcessA(NULL, CmdLine, NULL, NULL, false,
-                    CREATE_NEW_CONSOLE, NULL, NULL, &si, &pi);
-        if (!Error_Check) { 
-            cout << "Cannot find the file specified or this file is not executable\n";
-            return;
-        }         
-        if (Mode == 0) {
-            if (!Remain_ID.empty()) {
-                int curr_ID = *Remain_ID.begin();
-                Remain_ID.erase(Remain_ID.begin());
-                Process_List.insert({curr_ID, Process_Struct{curr_ID, Get_Name_Process(args[1]), 0, pi}});
-            }
-            else Process_List.insert({++ID, Process_Struct{ID, Get_Name_Process(args[1]), 0, pi}});
         }
         else {
-            PROCESS_INFORMATION foreground_Process = pi;
-            signal(SIGINT, OnCtrlC);
-            cout << "Running foreground... Press Ctrl+C to exit\n";
-            while (1) {
-                DWORD r = WaitForSingleObject(pi.hProcess, 33);
-                if (r == WAIT_OBJECT_0) break;
-                if (Stop) {
-                    cout << ".......\n";
-                    break;
-                }
+            string line;
+            while (getline(file_str, line)) {
+                vector<string> cmd_args = split_line(line);
+                cout << "Executing: " << line << "\n";
+                excute_line(cmd_args);
             }
-            TerminateProcess(pi.hProcess, 0);
-            CloseHandle(pi.hProcess);
-            CloseHandle(pi.hThread);
+            file_str.close();
+            return;
         }
     } 
     else {
@@ -337,7 +310,7 @@ void StartCmd (vector<string> &args) {
         bool Error_Check = CreateProcessA(_ProcessName, NULL, NULL, NULL, false,
             CREATE_NEW_CONSOLE, NULL, NULL, &si, &pi);
         if (!Error_Check) {
-            cout << "Cannot find the file specified or this file is not executable\n";
+            cout << "Cannot find \"" << args[1] << "\" or this file is not executable\n";
             return;
         }
         if (Mode == 0) {
@@ -349,6 +322,7 @@ void StartCmd (vector<string> &args) {
             else Process_List.insert({++ID, Process_Struct{ID, Get_Name_Process(_ProcessName), 0, pi}});
         }
         else {
+            Stop = 0;
             PROCESS_INFORMATION foreground_Process = pi;
             signal(SIGINT, OnCtrlC);
             cout << "Running foreground... Press Ctrl+C to exit\n";
@@ -356,7 +330,6 @@ void StartCmd (vector<string> &args) {
                 DWORD r = WaitForSingleObject(pi.hProcess, 33);
                 if (r == WAIT_OBJECT_0) break;
                 if (Stop) {
-                    cout << ".......\n";
                     break;
                 }
             }
@@ -567,8 +540,5 @@ int main() {
         args = split_line(input);
         excute_line(args);
     }
-    
-
 }
-
 
